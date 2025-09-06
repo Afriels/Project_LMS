@@ -80,12 +80,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // FIX: `signUp` implementation corrected for supabase-js v2.
     // The original had an incorrect type and was not robust (it would crash if options were missing).
     const signUp = async (credentials: SignUpWithPasswordCredentials) => {
-        const { email, password, options } = credentials;
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options,
-        });
+        // FIX: The `credentials` object is already in the shape expected by Supabase v2's signUp method.
+        // The original destructuring was redundant and caused the specified type error.
+        // Passing the credentials object directly is cleaner and correct.
+        const { data, error } = await supabase.auth.signUp(credentials);
 
         // Supabase sends a confirmation email. The user will be logged in after clicking the link.
         // The trigger will handle creating the public user profile.
@@ -109,9 +107,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         logout,
     };
 
+    // Show a loading indicator while the initial session is being fetched.
+    // This prevents a blank white screen on initial load.
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-gray-100">
+                <div className="text-center">
+                     <svg className="animate-spin h-10 w-10 text-indigo-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="mt-4 text-gray-600">Loading Smart School LMS...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <AuthContext.Provider value={value}>
-            {!loading && children}
+            {children}
         </AuthContext.Provider>
     );
 };
