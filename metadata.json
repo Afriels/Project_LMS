@@ -1,0 +1,5 @@
+{
+  "name": "Smart School LMS & CBT",
+  "description": "An integrated Learning Management System (LMS) and Computer-Based Test (CBT) platform for modern schools. It provides role-based dashboards for admins, teachers, and students, featuring class management, AI-powered question generation with Gemini, flexible exam creation, and detailed reporting.",
+  "requestFramePermissions": []
+}
