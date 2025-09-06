@@ -1,10 +1,9 @@
-// FIX: Add a triple-slash directive to include Vite's client types. This resolves the error "Property 'env' does not exist on type 'ImportMeta'".
-/// <reference types="vite/client" />
-
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// FIX: Switched from import.meta.env to process.env as configured in vite.config.ts.
+// This resolves the TypeScript errors related to Vite's client types.
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error("Supabase URL and Anon Key must be provided in .env file.");

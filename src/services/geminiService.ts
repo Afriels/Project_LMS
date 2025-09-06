@@ -1,17 +1,12 @@
-// FIX: Add a triple-slash directive to include Vite's client types. This resolves the error "Property 'env' does not exist on type 'ImportMeta'".
-/// <reference types="vite/client" />
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { QuestionType, Difficulty, BankSoal } from '../types';
 
 // The GoogleGenAI class is initialized using the API key from environment variables.
-// Vite exposes environment variables via `import.meta.env`.
-const apiKey = import.meta.env.VITE_API_KEY;
-if (!apiKey) {
-    throw new Error("VITE_API_KEY is not defined in the environment.");
-}
-const ai = new GoogleGenAI({ apiKey });
-
+// This is a secure way to handle API keys and is considered best practice.
+// FIX: Use process.env.API_KEY directly, as per guidelines.
+// The variable is made available through vite.config.ts.
+// This resolves TypeScript errors with import.meta.env.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const getQuestionTypeDescription = (type: QuestionType) => {
     switch (type) {
