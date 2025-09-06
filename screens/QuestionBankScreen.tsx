@@ -1,12 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BankSoal, Difficulty, QuestionType } from '../types';
 import { generateQuestionsWithAI } from '../services/geminiService';
 import { Plus, BrainCircuit, Loader2 } from 'lucide-react';
-
-const mockQuestions: BankSoal[] = [
-    { id: 1, mapel: 'Sejarah', tipe: QuestionType.MCQ, pertanyaan: 'Siapakah pahlawan yang memproklamasikan kemerdekaan Indonesia?', opsi_json: [{value: 'a', text: 'Soekarno'}, {value: 'b', text: 'Hatta'}, {value: 'c', text: 'Soekarno-Hatta'}, {value: 'd', text: 'Sutan Sjahrir'}], kunci_jawaban: 'c', tingkat_kesulitan: Difficulty.MUDAH, created_by: 2 },
-    { id: 2, mapel: 'Sejarah', tipe: QuestionType.ESAI, pertanyaan: 'Jelaskan latar belakang terjadinya Perang Dunia II.', tingkat_kesulitan: Difficulty.SULIT, created_by: 2 },
-];
+import { supabase } from '../services/supabaseClient';
+import { useAuth } from '../contexts/AuthContext';
 
 const AIGenerateModal: React.FC<{ onClose: () => void; onAddQuestions: (questions: Partial<BankSoal>[]) => void; }> = ({ onClose, onAddQuestions }) => {
     const [topic, setTopic] = useState('Sejarah Indonesia');
@@ -70,12 +67,39 @@ const AIGenerateModal: React.FC<{ onClose: () => void; onAddQuestions: (question
 
 
 const QuestionBankScreen: React.FC = () => {
-    const [questions, setQuestions] = useState<(BankSoal | Partial<BankSoal>)[]>(mockQuestions);
+    const { user } = useAuth();
+    const [questions, setQuestions] = useState<BankSoal[]>([]);
+    const [loading, setLoading] = useState(true);
     const [showAIGenerate, setShowAIGenerate] = useState(false);
 
-    const handleAddQuestions = (newQuestions: Partial<BankSoal>[]) => {
-        setQuestions(prev => [...prev, ...newQuestions]);
+    useEffect(() => {
+        const fetchQuestions = async () => {
+            const { data, error } = await supabase.from('bank_soal').select('*');
+            if (data) {
+                setQuestions(data);
+            }
+            setLoading(false);
+        };
+        fetchQuestions();
+    }, []);
+
+    const handleAddQuestions = async (newQuestions: Partial<BankSoal>[]) => {
+        if (!user) return;
+        
+        const questionsToInsert = newQuestions.map(q => ({...q, created_by: user.id}));
+
+        const { data, error } = await supabase.from('bank_soal').insert(questionsToInsert).select();
+        
+        if (data) {
+            setQuestions(prev => [...prev, ...data]);
+        }
+        if (error) {
+            console.error("Error saving new questions:", error);
+            alert("Could not save the generated questions.");
+        }
     };
+
+    if (loading) return <div>Loading questions...</div>;
 
     return (
         <div>
@@ -88,8 +112,8 @@ const QuestionBankScreen: React.FC = () => {
             </div>
             <div className="bg-white p-6 rounded-lg shadow-md">
                  <div className="space-y-4">
-                    {questions.map((q, index) => (
-                        <div key={q.id || `gen-${index}`} className="p-4 border rounded-md">
+                    {questions.map((q) => (
+                        <div key={q.id} className="p-4 border rounded-md">
                             <p className="font-semibold">{q.pertanyaan}</p>
                             <div className="text-sm text-gray-600 mt-2">
                                 <span className="font-bold">Type:</span> {q.tipe} | <span className="font-bold">Difficulty:</span> {q.tingkat_kesulitan}

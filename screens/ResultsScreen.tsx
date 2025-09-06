@@ -1,21 +1,35 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Role, Attempt, AttemptStatus } from '../types';
-
-const mockAttempts: Attempt[] = [
-    { id: 1, ujian_id: 1, user_id: 3, start_time: '2024-10-26T10:00:00', end_time: '2024-10-26T10:55:00', score: 85.50, status: AttemptStatus.GRADED },
-    { id: 2, ujian_id: 2, user_id: 3, start_time: '2024-10-20T09:00:00', end_time: '2024-10-20T09:25:00', score: 92.00, status: AttemptStatus.GRADED },
-    { id: 3, ujian_id: 3, user_id: 3, start_time: '2024-10-15T13:00:00', end_time: '2024-10-15T13:45:00', status: AttemptStatus.SUBMITTED },
-];
-
-const mockUjianDetails = {
-    1: { judul: 'Ujian Tengah Semester - Sejarah' },
-    2: { judul: 'Kuis Bab 1 - Biologi' },
-    3: { judul: 'Latihan Soal - Matematika' },
-}
+import { supabase } from '../services/supabaseClient';
 
 const StudentResultsView: React.FC = () => {
+    const { user } = useAuth();
+    const [attempts, setAttempts] = useState<Attempt[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAttempts = async () => {
+            if (!user) return;
+            const { data, error } = await supabase
+                .from('attempt')
+                .select(`
+                    *,
+                    ujian ( judul )
+                `)
+                .eq('user_id', user.id)
+                .order('start_time', { ascending: false });
+
+            if (data) {
+                setAttempts(data);
+            }
+            setLoading(false);
+        };
+        fetchAttempts();
+    }, [user]);
+
+    if (loading) return <div>Loading results...</div>
+
     return (
         <div>
             <h1 className="text-3xl font-bold text-gray-800 mb-6">My Results</h1>
@@ -31,11 +45,10 @@ const StudentResultsView: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {mockAttempts.map(attempt => {
-                            const ujian = mockUjianDetails[attempt.ujian_id as keyof typeof mockUjianDetails];
+                        {attempts.map(attempt => {
                             return (
                                 <tr key={attempt.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{ujian.judul}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{attempt.ujian?.judul}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(attempt.start_time).toLocaleDateString()}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
                                         {attempt.score ? attempt.score.toFixed(2) : 'N/A'}
@@ -55,6 +68,7 @@ const StudentResultsView: React.FC = () => {
                         })}
                     </tbody>
                 </table>
+                 {attempts.length === 0 && <p className="p-6 text-center text-gray-500">You haven't completed any exams yet.</p>}
             </div>
         </div>
     );

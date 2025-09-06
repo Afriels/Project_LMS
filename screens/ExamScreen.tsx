@@ -1,45 +1,54 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Role, Ujian, BankSoal, QuestionType, Difficulty } from '../types';
+import { Role, Ujian, BankSoal, QuestionType } from '../types';
+import { supabase } from '../services/supabaseClient';
 
-const mockExams: Ujian[] = [
-    { id: 1, kelas_id: 101, judul: 'Ujian Tengah Semester - Sejarah', deskripsi: 'Ujian mencakup bab 1-3.', waktu_mulai: '2024-10-26T10:00:00', durasi_menit: 60, aturan_random: true, author_id: 2, soal_ids: [1, 2] }
-];
-const mockQuestions: BankSoal[] = [
-    { id: 1, mapel: 'Sejarah', tipe: QuestionType.MCQ, pertanyaan: 'Siapakah pahlawan yang memproklamasikan kemerdekaan Indonesia?', opsi_json: [{value: 'a', text: 'Soekarno'}, {value: 'b', text: 'Hatta'}, {value: 'c', text: 'Soekarno-Hatta'}, {value: 'd', text: 'Sutan Sjahrir'}], kunci_jawaban: 'c', tingkat_kesulitan: Difficulty.MUDAH, created_by: 2 },
-    { id: 2, mapel: 'Sejarah', tipe: QuestionType.ESAI, pertanyaan: 'Jelaskan latar belakang terjadinya Perang Dunia II.', tingkat_kesulitan: Difficulty.SULIT, created_by: 2 },
-];
-
-
-const ExamTaker: React.FC<{ exam: Ujian, onFinish: () => void }> = ({ exam, onFinish }) => {
+const ExamTaker: React.FC<{ exam: Ujian, attemptId: number, onFinish: () => void }> = ({ exam, attemptId, onFinish }) => {
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [timeLeft, setTimeLeft] = useState(exam.durasi_menit * 60);
-    const [answers, setAnswers] = useState<{[key: number]: string}>({});
+    const [answers, setAnswers] = useState<{ [key: number]: string }>({});
 
     useEffect(() => {
         const timer = setInterval(() => {
             setTimeLeft(prev => {
                 if (prev <= 1) {
                     clearInterval(timer);
-                    onFinish();
+                    handleSubmit();
                     return 0;
                 }
                 return prev - 1;
             });
         }, 1000);
         return () => clearInterval(timer);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [exam.id, onFinish]);
+    }, []);
+
+    const autosaveAnswer = useCallback(
+        async (soalId: number, answer: string) => {
+            await supabase.from('jawaban').upsert({
+                attempt_id: attemptId,
+                soal_id: soalId,
+                jawaban_user: answer
+            }, { onConflict: 'attempt_id, soal_id' });
+        },
+        [attemptId]
+    );
 
     const handleAnswerChange = (soalId: number, answer: string) => {
-        const newAnswers = {...answers, [soalId]: answer};
-        setAnswers(newAnswers);
-        // Autosave logic would go here
-        console.log("Autosaving answer:", newAnswers);
+        setAnswers(prev => ({ ...prev, [soalId]: answer }));
+        autosaveAnswer(soalId, answer);
     }
-    
-    const currentQuestion = mockQuestions.find(q => q.id === exam.soal_ids[currentQuestionIndex]);
+
+    const handleSubmit = async () => {
+        // Call the grading function
+        const { error } = await supabase.rpc('grade_objective_attempt', { p_attempt_id: attemptId });
+        if (error) {
+            console.error("Error grading attempt:", error);
+            alert("There was an issue submitting your exam. Please contact your teacher.");
+        }
+        onFinish();
+    };
+
+    const currentQuestion = exam.bank_soal[currentQuestionIndex];
 
     return (
         <div className="bg-white p-8 rounded-lg shadow-lg">
@@ -52,41 +61,43 @@ const ExamTaker: React.FC<{ exam: Ujian, onFinish: () => void }> = ({ exam, onFi
 
             {currentQuestion && (
                 <div>
-                    <p className="text-lg mb-4">Question {currentQuestionIndex + 1} of {exam.soal_ids.length}</p>
+                    <p className="text-lg mb-4">Question {currentQuestionIndex + 1} of {exam.bank_soal.length}</p>
                     <p className="font-semibold text-xl mb-6">{currentQuestion.pertanyaan}</p>
                     {currentQuestion.tipe === QuestionType.MCQ && currentQuestion.opsi_json && (
                         <div className="space-y-3">
                             {currentQuestion.opsi_json.map(opt => (
                                 <label key={opt.value} className="flex items-center p-3 border rounded-md cursor-pointer hover:bg-gray-50">
-                                    <input type="radio" name={`q_${currentQuestion.id}`} value={opt.value} className="mr-3" 
-                                    onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}/>
+                                    <input type="radio" name={`q_${currentQuestion.id}`} value={opt.value} className="mr-3"
+                                        checked={answers[currentQuestion.id] === opt.value}
+                                        onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)} />
                                     {opt.text}
                                 </label>
                             ))}
                         </div>
                     )}
-                     {currentQuestion.tipe === QuestionType.ESAI && (
-                         <textarea 
-                            rows={8} 
-                            className="w-full p-3 border rounded-md" 
+                    {currentQuestion.tipe === QuestionType.ESAI && (
+                        <textarea
+                            rows={8}
+                            className="w-full p-3 border rounded-md"
                             placeholder="Type your answer here..."
+                            value={answers[currentQuestion.id] || ''}
                             onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
-                         />
+                        />
                     )}
                 </div>
             )}
-            
+
             <div className="flex justify-between mt-8">
-                <button 
+                <button
                     disabled={currentQuestionIndex === 0}
-                    onClick={() => setCurrentQuestionIndex(i => i-1)}
+                    onClick={() => setCurrentQuestionIndex(i => i - 1)}
                     className="px-6 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 disabled:opacity-50"
                 >Previous</button>
 
-                {currentQuestionIndex === exam.soal_ids.length - 1 ? (
-                    <button onClick={onFinish} className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Submit Exam</button>
+                {currentQuestionIndex === exam.bank_soal.length - 1 ? (
+                    <button onClick={handleSubmit} className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Submit Exam</button>
                 ) : (
-                    <button onClick={() => setCurrentQuestionIndex(i => i+1)} className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Next</button>
+                    <button onClick={() => setCurrentQuestionIndex(i => i + 1)} className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Next</button>
                 )}
             </div>
         </div>
@@ -95,28 +106,77 @@ const ExamTaker: React.FC<{ exam: Ujian, onFinish: () => void }> = ({ exam, onFi
 
 
 const StudentExamView: React.FC = () => {
-    const [takingExam, setTakingExam] = useState<Ujian | null>(null);
+    const { user } = useAuth();
+    const [exams, setExams] = useState<Ujian[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [takingExam, setTakingExam] = useState<{ exam: Ujian, attemptId: number } | null>(null);
 
+    useEffect(() => {
+        const fetchExams = async () => {
+            if (!user?.kelas_id) return;
+
+            const { data, error } = await supabase
+                .from('ujian')
+                .select(`*, ujian_soal(bank_soal(*))`)
+                .eq('kelas_id', user.kelas_id);
+
+            if (data) {
+                const formattedExams = data.map(exam => ({
+                    ...exam,
+                    bank_soal: exam.ujian_soal.map((us: any) => us.bank_soal)
+                }));
+                setExams(formattedExams as Ujian[]);
+            }
+            setLoading(false);
+        };
+        fetchExams();
+    }, [user]);
+
+    const handleStartExam = async (exam: Ujian) => {
+        if (!user) return;
+        
+        // Create a new attempt
+        const { data, error } = await supabase
+            .from('attempt')
+            .insert({
+                ujian_id: exam.id,
+                user_id: user.id,
+                status: 'in_progress',
+            })
+            .select()
+            .single();
+
+        if (error || !data) {
+            console.error("Failed to start exam attempt", error);
+            alert("Could not start the exam. Please try again.");
+            return;
+        }
+
+        setTakingExam({ exam, attemptId: data.id });
+    };
+
+    if (loading) return <div>Loading exams...</div>;
+    
     if (takingExam) {
-        return <ExamTaker exam={takingExam} onFinish={() => setTakingExam(null)} />;
+        return <ExamTaker exam={takingExam.exam} attemptId={takingExam.attemptId} onFinish={() => setTakingExam(null)} />;
     }
 
     return (
         <div>
             <h1 className="text-3xl font-bold text-gray-800 mb-6">Available Exams</h1>
             <div className="bg-white p-6 rounded-lg shadow-md">
-                {mockExams.map(exam => (
+                {exams.length > 0 ? exams.map(exam => (
                     <div key={exam.id} className="flex justify-between items-center p-4 border-b">
                         <div>
                             <h3 className="font-semibold text-lg">{exam.judul}</h3>
                             <p className="text-sm text-gray-600">{exam.deskripsi}</p>
                             <p className="text-sm text-gray-500">Duration: {exam.durasi_menit} minutes</p>
                         </div>
-                        <button onClick={() => setTakingExam(exam)} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                        <button onClick={() => handleStartExam(exam)} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
                             Start Exam
                         </button>
                     </div>
-                ))}
+                )) : <p>No exams available for your class at the moment.</p>}
             </div>
         </div>
     );

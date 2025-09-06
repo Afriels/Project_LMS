@@ -1,13 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Role, Materi } from '../types';
+import { Role, Materi, Kelas } from '../types';
 import { Paperclip, Video, Link as LinkIcon } from 'lucide-react';
-
-const mockMaterials: Materi[] = [
-    { id: 1, kelas_id: 101, author_id: 2, judul: 'Bab 1: Pengenalan Sejarah Indonesia', konten_html: 'Ini adalah ringkasan bab 1.', publish_date: '2023-10-01', file_url: '#' },
-    { id: 2, kelas_id: 101, author_id: 2, judul: 'Video: Perang Diponegoro', konten_html: 'Tonton video penjelasan.', publish_date: '2023-10-03', file_url: '#' },
-    { id: 3, kelas_id: 101, author_id: 2, judul: 'Link Eksternal: Museum Nasional', konten_html: 'Kunjungi website museum.', publish_date: '2023-10-05', file_url: '#' },
-];
+import { supabase } from '../services/supabaseClient';
 
 const MaterialItem: React.FC<{ material: Materi }> = ({ material }) => {
     const getIcon = () => {
@@ -17,13 +12,13 @@ const MaterialItem: React.FC<{ material: Materi }> = ({ material }) => {
     };
 
     return (
-        <a href={material.file_url} target="_blank" rel="noopener noreferrer" className="block p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow">
+        <a href={material.file_url || '#'} target="_blank" rel="noopener noreferrer" className="block p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center">
                 <div className="mr-4">{getIcon()}</div>
                 <div>
                     <h3 className="font-semibold text-gray-800">{material.judul}</h3>
                     <p className="text-sm text-gray-600">{material.konten_html}</p>
-                    <p className="text-xs text-gray-400 mt-1">Published on: {material.publish_date}</p>
+                    <p className="text-xs text-gray-400 mt-1">Published on: {new Date(material.publish_date).toLocaleDateString()}</p>
                 </div>
             </div>
         </a>
@@ -31,12 +26,50 @@ const MaterialItem: React.FC<{ material: Materi }> = ({ material }) => {
 };
 
 const StudentClassView: React.FC = () => {
+    const { user } = useAuth();
+    const [kelas, setKelas] = useState<Kelas | null>(null);
+    const [materials, setMaterials] = useState<Materi[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchClassData = async () => {
+            if (!user?.kelas_id) {
+                setLoading(false);
+                return;
+            };
+
+            // Fetch class details
+            const { data: classData } = await supabase.from('kelas').select('*').eq('id', user.kelas_id).single();
+            setKelas(classData);
+            
+            // Fetch materials for the class
+            const { data: materialData } = await supabase.from('materi').select('*').eq('kelas_id', user.kelas_id).order('publish_date', { ascending: false });
+            setMaterials(materialData || []);
+            
+            setLoading(false);
+        };
+
+        fetchClassData();
+    }, [user]);
+
+    if (loading) {
+        return <div>Loading class data...</div>
+    }
+
+    if (!kelas) {
+        return <div>You are not enrolled in any class.</div>
+    }
+
     return (
         <div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">My Class: X IPA 1</h1>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">My Class: {kelas.nama}</h1>
             <p className="text-gray-600 mb-6">Here are the materials for your class.</p>
             <div className="space-y-4">
-                {mockMaterials.map(material => <MaterialItem key={material.id} material={material} />)}
+                {materials.length > 0 ? (
+                    materials.map(material => <MaterialItem key={material.id} material={material} />)
+                ) : (
+                    <p>No materials have been uploaded for this class yet.</p>
+                )}
             </div>
         </div>
     );

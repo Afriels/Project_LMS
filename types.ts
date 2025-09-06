@@ -1,4 +1,3 @@
-
 export enum Role {
     ADMIN = 'admin',
     GURU = 'guru',
@@ -11,6 +10,7 @@ export interface User {
     email: string;
     role: Role;
     kelas_id?: number;
+    created_at: string;
 }
 
 export interface Kelas {
@@ -62,7 +62,7 @@ export interface Ujian {
     durasi_menit: number;
     aturan_random: boolean;
     author_id: number;
-    soal_ids: number[];
+    bank_soal: BankSoal[]; // Changed from soal_ids to hold full question objects
 }
 
 export enum AttemptStatus {
@@ -79,6 +79,9 @@ export interface Attempt {
     end_time?: string;
     score?: number;
     status: AttemptStatus;
+    ujian?: { // For joining data
+        judul: string;
+    }
 }
 
 export interface Jawaban {

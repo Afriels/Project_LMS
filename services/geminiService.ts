@@ -1,13 +1,13 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { QuestionType, Difficulty, BankSoal } from '../types';
 
-// IMPORTANT: This check is for the web app environment.
-// The API key is expected to be set in the environment.
-const API_KEY = process.env.API_KEY;
+// IMPORTANT: Replace this placeholder with your actual Google Gemini API key.
+// The app's environment does not support process.env, so the key must be provided directly here.
+const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjcHl2bHlmeGZwcGZhZ3NtaGZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcxNzI1NTYsImV4cCI6MjA3Mjc0ODU1Nn0.tsROhbTbQMVr7wAOcjH_GR6FhhVNwkjT2MnftuhZqY8";
 
-if (!API_KEY) {
-    console.warn("API_KEY environment variable not set. Gemini API calls will fail.");
+
+if (!API_KEY || API_KEY === "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjcHl2bHlmeGZwcGZhZ3NtaGZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcxNzI1NTYsImV4cCI6MjA3Mjc0ODU1Nn0.tsROhbTbQMVr7wAOcjH_GR6FhhVNwkjT2MnftuhZqY8") {
+    console.warn("Gemini API key is not set. Please replace 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjcHl2bHlmeGZwcGZhZ3NtaGZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcxNzI1NTYsImV4cCI6MjA3Mjc0ODU1Nn0.tsROhbTbQMVr7wAOcjH_GR6FhhVNwkjT2MnftuhZqY8' in services/geminiService.ts. AI features will fail.");
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY! });
@@ -32,6 +32,10 @@ export const generateQuestionsWithAI = async (
     count: number
 ): Promise<Partial<BankSoal>[]> => {
     try {
+        if (!API_KEY || API_KEY === "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjcHl2bHlmeGZwcGZhZ3NtaGZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcxNzI1NTYsImV4cCI6MjA3Mjc0ODU1Nn0.tsROhbTbQMVr7wAOcjH_GR6FhhVNwkjT2MnftuhZqY8") {
+            throw new Error("AI Generation failed: The Gemini API key is not configured in services/geminiService.ts.");
+        }
+
         const prompt = `Generate ${count} ${getQuestionTypeDescription(type)} questions about "${topic}" with a difficulty level of "${difficulty}". For multiple choice, provide four distinct options labeled a, b, c, d and indicate the correct answer key. For true/false, provide the correct answer. For fill-in-the-blank, provide the correct short answer. For essays, the answer key should be a brief summary of expected points.`;
 
         const response = await ai.models.generateContent({
@@ -68,16 +72,21 @@ export const generateQuestionsWithAI = async (
         const generated = JSON.parse(jsonStr) as { pertanyaan: string; opsi?: string[]; kunci_jawaban: string }[];
         
         return generated.map(q => ({
-            mapel: topic,
-            tipe: type,
             pertanyaan: q.pertanyaan,
-            opsi_json: q.opsi ? q.opsi.map((opt, index) => ({ value: String.fromCharCode(97 + index), text: opt })) : undefined,
+            opsi_json: q.opsi ? q.opsi.map((opt, index) => ({
+                value: String.fromCharCode(97 + index), // 'a', 'b', 'c', 'd'
+                text: opt
+            })) : undefined,
             kunci_jawaban: q.kunci_jawaban,
-            tingkat_kesulitan: difficulty
+            mapel: topic, // Use the topic as the subject
+            tipe: type,
+            tingkat_kesulitan: difficulty,
         }));
-
     } catch (error) {
-        console.error("Error generating questions with Gemini:", error);
-        throw new Error("Failed to generate questions. Please check your API key and network connection.");
+        console.error("Error generating questions with AI:", error);
+        if (error instanceof Error && (error.message.includes('API key') || error.message.includes('permission') || error.message.includes('configured'))) {
+             throw error; // Re-throw the specific error message
+        }
+        throw new Error("Failed to parse AI response. The model may have returned an invalid format or the request was blocked.");
     }
 };

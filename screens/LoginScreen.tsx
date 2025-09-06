@@ -1,30 +1,30 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Role } from '../types';
 
-// Mock users for demonstration
+// IMPORTANT: These credentials must match users you've created in your Supabase project.
 const mockUsers = [
-    { id: 1, email: 'admin@school.com', password: 'password', nama: 'Admin User', role: Role.ADMIN },
-    { id: 2, email: 'guru@school.com', password: 'password', nama: 'Guru Hebat', role: Role.GURU },
-    { id: 3, email: 'siswa@school.com', password: 'password', nama: 'Siswa Rajin', role: Role.SISWA, kelas_id: 101 },
+    { email: 'admin@school.com', password: 'password', role: Role.ADMIN },
+    { email: 'guru@school.com', password: 'password', role: Role.GURU },
+    { email: 'siswa@school.com', password: 'password', role: Role.SISWA },
 ];
-
 
 const LoginScreen: React.FC = () => {
     const [email, setEmail] = useState('siswa@school.com');
     const [password, setPassword] = useState('password');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const { login } = useAuth();
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        const user = mockUsers.find(u => u.email === email && u.password === password);
-        if (user) {
-            login(user);
-        } else {
-            setError('Invalid email or password');
+        setLoading(true);
+        setError('');
+        const { error } = await login(email, password);
+        if (error) {
+            setError(error.message);
         }
+        setLoading(false);
     };
     
     const setCredentials = (role: Role) => {
@@ -77,9 +77,10 @@ const LoginScreen: React.FC = () => {
                     <div>
                         <button
                             type="submit"
-                            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            disabled={loading}
+                            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400"
                         >
-                            Sign in
+                            {loading ? 'Signing in...' : 'Sign in'}
                         </button>
                     </div>
                 </form>
@@ -97,4 +98,3 @@ const LoginScreen: React.FC = () => {
 };
 
 export default LoginScreen;
-
