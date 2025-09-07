@@ -40,7 +40,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     const { data: userProfile } = await supabase
                         .from('users')
                         .select('*')
-                        .eq('email', session.user.email)
+                        .eq('auth_id', session.user.id)
                         .single();
                     setUser(userProfile);
                 }
@@ -58,7 +58,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                      const { data: userProfile } = await supabase
                         .from('users')
                         .select('*')
-                        .eq('email', session.user.email)
+                        .eq('auth_id', session.user.id)
                         .single();
                     setUser(userProfile as User | null);
                 } else {

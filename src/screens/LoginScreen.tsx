@@ -27,6 +27,11 @@ const LoginScreen: React.FC = () => {
         setMessage('');
 
         if (isSignUp) {
+            if (!nama || nama.trim() === '') {
+                setError('Full Name is required.');
+                setLoading(false);
+                return;
+            }
             const { error } = await signUp({
                 email,
                 password,
