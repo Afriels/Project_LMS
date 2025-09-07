@@ -1,10 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { QuestionType, Difficulty, BankSoal } from '../types';
 
-// The GoogleGenAI class is initialized using the API key from environment variables.
-// This is a secure way to handle API keys and is considered best practice.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const getQuestionTypeDescription = (type: QuestionType) => {
     switch (type) {
         case QuestionType.MCQ:
@@ -24,6 +20,14 @@ export const generateQuestionsWithAI = async (
     difficulty: Difficulty,
     count: number
 ): Promise<Partial<BankSoal>[]> => {
+    // Lazy initialization of the Gemini client.
+    // This prevents the app from crashing on load if the API key is not set.
+    const apiKey = process.env.API_KEY;
+    if (!apiKey || apiKey === 'undefined') {
+        throw new Error("Gemini API key is not configured. Please add it to your .env file.");
+    }
+    const ai = new GoogleGenAI({ apiKey });
+
     try {
         const prompt = `Generate ${count} ${getQuestionTypeDescription(type)} questions about "${topic}" with a difficulty level of "${difficulty}". For multiple choice, provide four distinct options labeled a, b, c, d and indicate the correct answer key. For true/false, provide the correct answer. For fill-in-the-blank, provide the correct short answer. For essays, the answer key should be a brief summary of expected points.`;
 
