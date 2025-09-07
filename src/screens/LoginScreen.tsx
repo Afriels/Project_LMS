@@ -1,20 +1,21 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Role } from '../types';
 
-// IMPORTANT: These credentials must match users you've created in your Supabase project.
+// IMPORTANT: These credentials are for the "quick login" buttons.
+// The corresponding user MUST be created via the sign-up form first.
 const mockUsers = [
-    { email: 'admin@school.com', password: 'password', role: Role.ADMIN },
-    { email: 'guru@school.com', password: 'password', role: Role.GURU },
-    { email: 'siswa@school.com', password: 'password', role: Role.SISWA },
+    { email: 'admin@smanilum.my.id', password: 'admin123', role: Role.ADMIN },
+    { email: 'guru@smanilum.my.id', password: 'password123', role: Role.GURU },
+    { email: 'siswa@smanilum.my.id', password: 'password123', role: Role.SISWA },
 ];
 
 const LoginScreen: React.FC = () => {
     const [isSignUp, setIsSignUp] = useState(false);
-    const [email, setEmail] = useState('siswa@school.com');
-    const [password, setPassword] = useState('password');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [nama, setNama] = useState('');
+    const [role, setRole] = useState<Role>(Role.SISWA);
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
@@ -38,7 +39,7 @@ const LoginScreen: React.FC = () => {
                 options: {
                     data: {
                         nama: nama,
-                        role: Role.SISWA, // Default role for new signups
+                        role: role, // Use the selected role from state
                     },
                 },
             });
@@ -51,7 +52,12 @@ const LoginScreen: React.FC = () => {
         } else {
             const { error } = await login(email, password);
             if (error) {
-                setError(error.message);
+                // Provide a more helpful error message to the user.
+                if (error.message.includes("Invalid login credentials")) {
+                    setError("Invalid credentials. Please double-check your email/password, or sign up for a new account.");
+                } else {
+                    setError(error.message);
+                }
             }
         }
         setLoading(false);
@@ -80,18 +86,35 @@ const LoginScreen: React.FC = () => {
                 <form className="mt-8 space-y-6" onSubmit={handleAuthAction}>
                     <div className="rounded-md shadow-sm -space-y-px">
                         {isSignUp && (
-                             <div>
-                                <input
-                                    id="full-name"
-                                    name="nama"
-                                    type="text"
-                                    required
-                                    className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                                    placeholder="Full Name"
-                                    value={nama}
-                                    onChange={(e) => setNama(e.target.value)}
-                                />
-                            </div>
+                            <>
+                                <div>
+                                    <input
+                                        id="full-name"
+                                        name="nama"
+                                        type="text"
+                                        required
+                                        className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                                        placeholder="Full Name"
+                                        value={nama}
+                                        onChange={(e) => setNama(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    {/* NOTE: In a production app, you might want to restrict who can sign up as an admin or teacher. */}
+                                    <select
+                                        id="role"
+                                        name="role"
+                                        required
+                                        className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                                        value={role}
+                                        onChange={(e) => setRole(e.target.value as Role)}
+                                    >
+                                        <option value={Role.SISWA}>Student</option>
+                                        <option value={Role.GURU}>Teacher</option>
+                                        <option value={Role.ADMIN}>Admin</option>
+                                    </select>
+                                </div>
+                            </>
                         )}
                         <div>
                             <input
@@ -142,11 +165,14 @@ const LoginScreen: React.FC = () => {
                 
                 {!isSignUp && (
                     <div className="text-sm text-center text-gray-500">
-                        <p>Or quick login as:</p>
-                        <div className="flex justify-center space-x-4 mt-2">
+                        <p className="mb-2">Or quick login as:</p>
+                        <div className="flex justify-center space-x-4">
                             <button onClick={() => setCredentials(Role.ADMIN)} className="font-medium text-indigo-600 hover:text-indigo-500">Admin</button>
                             <button onClick={() => setCredentials(Role.GURU)} className="font-medium text-indigo-600 hover:text-indigo-500">Teacher</button>
                             <button onClick={() => setCredentials(Role.SISWA)} className="font-medium text-indigo-600 hover:text-indigo-500">Student</button>
+                        </div>
+                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800 text-xs">
+                            <p><strong>Note:</strong> Quick login buttons only fill the form. You must create these accounts using the 'Sign up' link first.</p>
                         </div>
                     </div>
                 )}

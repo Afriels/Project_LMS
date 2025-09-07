@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { User, Role } from '../types';
@@ -78,18 +77,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { error };
     };
 
-    // FIX: `signUp` implementation corrected for supabase-js v2.
-    // The original had an incorrect type and was not robust (it would crash if options were missing).
     const signUp = async (credentials: SignUpWithPasswordCredentials) => {
-        // FIX: The `credentials` object is already in the shape expected by Supabase v2's signUp method.
-        // The original destructuring was redundant and caused the specified type error.
-        // Passing the credentials object directly is cleaner and correct.
-        const { data, error } = await supabase.auth.signUp(credentials);
+        // FIX: The `SignUpWithPasswordCredentials` is a union type. A type guard is needed to safely
+        // access the `email` property, as the app only supports email-based sign-up.
+        if (!('email' in credentials)) {
+            return { 
+                error: { name: "AuthError", message: "Only email sign-up is supported." } as AuthError 
+            };
+        }
 
-        // Supabase sends a confirmation email. The user will be logged in after clicking the link.
-        // The trigger will handle creating the public user profile.
+        // Step 1: Sign up the user with Supabase Auth
+        // FIX: Pass `credentials` directly. Reconstructing the object caused a type error.
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp(credentials);
+
+        if (signUpError) {
+            return { error: signUpError };
+        }
+
+        // Step 2: If auth sign-up is successful, create a profile in the public 'users' table.
+        // This makes the app resilient, as it doesn't rely on a database trigger which might be missing.
+        if (signUpData.user) {
+            // FIX: The `options.data` is a generic `object`. Cast it to access custom properties like `nama` and `role`.
+            const userData = credentials.options?.data as { nama?: string; role?: Role };
+            const { error: insertError } = await supabase.from('users').insert({
+                auth_id: signUpData.user.id,
+                email: credentials.email, // Safe to access now.
+                nama: userData?.nama || 'New User',
+                role: userData?.role || Role.SISWA,
+            });
+
+            if (insertError) {
+                console.error("Critical: User created in auth, but profile creation failed:", insertError);
+                // This is a problematic state. For now, return a user-friendly error.
+                // In a real production app, you might want to add logic to delete the auth user or alert an admin.
+                return {
+                    error: {
+                        name: "ProfileCreationError",
+                        message: "Account created, but profile could not be saved. Please contact support.",
+                    } as AuthError,
+                };
+            }
+        }
         
-        return { error };
+        return { error: null };
     };
 
 
