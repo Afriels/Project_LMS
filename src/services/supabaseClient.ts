@@ -16,4 +16,5 @@ if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error("Supabase URL and Anon Key must be provided either in a .env file or as fallbacks in supabaseClient.ts.");
 }
 
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
